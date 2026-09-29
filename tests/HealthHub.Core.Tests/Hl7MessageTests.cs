@@ -65,5 +65,17 @@ using HealthHub.Core.Hl7;
 
         Assert.Empty(pid.GetRepetitions(2));
     }
+[Theory]
+[InlineData("\n")]
+[InlineData("\r\n")]
+public void Parses_message_with_non_standard_segment_separators(string separator)
+{
+    var badlySeparated = SampleAdt.Replace("\r", separator);
 
+    var msg = Hl7Message.Parse(badlySeparated);
+
+    Assert.Equal(4, msg.Segments.Count);
+    Assert.Equal("DOE", msg.GetSegment("PID")!.GetComponent(5, 1));
+    Assert.Equal("MSG00001", msg.ControlId);
+}
   }
