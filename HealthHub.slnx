@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HealthHub.Core/HealthHub.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HealthHub.Core.Tests/HealthHub.Core.Tests.csproj" />
+  </Folder>
+</Solution>
