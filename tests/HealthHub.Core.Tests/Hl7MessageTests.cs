@@ -1,4 +1,5 @@
-  using HealthHub.Core.Hl7;
+using System.Configuration.Assemblies;
+using HealthHub.Core.Hl7;
 
   namespace HealthHub.Core.Tests;
 
@@ -43,5 +44,26 @@
             Assert.Throws<FormatException>(() => Hl7Message.Parse("PID|1||123456"));
 
         }
+
+        [Fact]
+        public void Pid3_has_two_repetitions()
+    {
+        var msg = Hl7Message.Parse(SampleAdt);
+        var pid = msg.GetSegment("PID")!;
+        var ids = pid.GetRepetitions(3);
+
+        Assert.Equal(2, ids.Length);
+        //Each repetition is a CX data type
+        var secondId = ids[1].Split(msg.Delimiters.Component);
+        Assert.Equal("E998877", secondId[0]);
+        Assert.Equal("PI", secondId[4]);
+    }
+    [Fact]
+    public void Empty_field_has_no_repetitions()
+    {
+        var pid = Hl7Message.Parse(SampleAdt).GetSegment("PID")!;
+
+        Assert.Empty(pid.GetRepetitions(2));
+    }
 
   }

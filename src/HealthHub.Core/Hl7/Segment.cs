@@ -26,11 +26,35 @@ public sealed class Segment
         fieldNumber < _fields.Length ? _fields[fieldNumber] : "";
     ///<summary>Returns one component of the first repetition of the field </summary>
     /// 
+    /// Returns each repitition for a field as its own string
+    public string[] GetRepetitions(int fieldNumber)
+    {
+        var field = GetField(fieldNumber);
+
+        if (field == "")
+            return [];
+
+        if (IsDelimiterField(fieldNumber))
+            return [field];
+        
+        return field.Split(_delims.Repetition);
+    }
+
+    //Returns one component 1-based of the first repetition of a field.
     public string GetComponent(int fieldNumber, int componentNumber)
         {
-            var firstRepetition = GetField(fieldNumber).Split(_delims.Repetition)[0];
+            //MSH-1 and MSH-2 have no components;whole value treated as 1 component
+            if (IsDelimiterField(fieldNumber))
+                return componentNumber == 1 ? GetField(fieldNumber) : "";
+
+            // resuse GetRepetitions instead of splitting on ~ a second tme
+            var firstRepetition = GetRepetitions(fieldNumber).FirstOrDefault() ?? "";
+
+            //MSH-1 and MSH-2 hold the delimiter characters and must never be split.
+            //var firstRepetition = GetField(fieldNumber).Split(_delims.Repetition)[0];
             var components = firstRepetition.Split(_delims.Component);
             return componentNumber <= components.Length ? components[componentNumber -1] : "";
-
         }   
+        // MSH-1 and MSH-2 are delimited characters themselves; they must never be split 
+            private bool IsDelimiterField(int fieldNumber) => Name == "MSH" && fieldNumber <= 2;
 }
