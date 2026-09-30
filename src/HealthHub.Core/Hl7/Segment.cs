@@ -29,14 +29,18 @@ public sealed class Segment
     /// Returns each repitition for a field as its own string
     public string[] GetRepetitions(int fieldNumber)
     {
+        //gets the raw text of the field
         var field = GetField(fieldNumber);
 
+        //empty field has zero repetitions
         if (field == "")
             return [];
 
+        //returns MSH-1/MSH-2 whole as a single item, never split. 
         if (IsDelimiterField(fieldNumber))
             return [field];
         
+        //handles other fields by splitting on ~. delims.Repetitions message defines its own delmiters
         return field.Split(_delims.Repetition);
     }
 
@@ -48,6 +52,7 @@ public sealed class Segment
                 return componentNumber == 1 ? GetField(fieldNumber) : "";
 
             // resuse GetRepetitions instead of splitting on ~ a second tme
+            //firstordefault returns first item or null  
             var firstRepetition = GetRepetitions(fieldNumber).FirstOrDefault() ?? "";
 
             //MSH-1 and MSH-2 hold the delimiter characters and must never be split.
@@ -56,5 +61,6 @@ public sealed class Segment
             return componentNumber <= components.Length ? components[componentNumber -1] : "";
         }   
         // MSH-1 and MSH-2 are delimited characters themselves; they must never be split 
+        //IsDelimiterField is helper method. Private becaue nothing outside class needs it. 
             private bool IsDelimiterField(int fieldNumber) => Name == "MSH" && fieldNumber <= 2;
 }

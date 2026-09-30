@@ -1,4 +1,4 @@
-using System.Text;
+using System.Text; //brings in StringBuilder
 
 namespace HealthHub.Core.Hl7;
 
@@ -7,6 +7,7 @@ public static class Hl7Escaping
     /// <summary>
     /// Converts HL7 escape sequences (\F\ \S\ \R\ \T\ \E\) back into the characters they represent.
     /// </summary>
+    /// Hl7Escaping.Unescape utility code 
     public static string Unescape(string value, Delimiters d)
     {
         // Fast path: nothing to do if there's no escape character at all.

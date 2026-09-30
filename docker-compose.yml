@@ -1,0 +1,16 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64          # SQL Server has no Apple Silicon build; Rosetta emulates it
+    container_name: healthhub-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}   # read from .env
+      MSSQL_PID: Developer                      # free, full-featured edition for dev work
+    ports:
+      - "1433:1433"                # your Mac's port 1433 -> container's port 1433
+    volumes:
+      - sqldata:/var/opt/mssql     # keeps your databases when the container restarts
+
+volumes:
+  sqldata:
