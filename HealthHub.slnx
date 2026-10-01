@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/HealthHub.Core/HealthHub.Core.csproj" />
     <Project Path="src/HealthHub.Data/HealthHub.Data.csproj" />
+    <Project Path="src/HealthHub.Tools/HealthHub.Tools.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/HealthHub.Core.Tests/HealthHub.Core.Tests.csproj" />
