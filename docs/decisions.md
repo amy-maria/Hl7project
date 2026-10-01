@@ -47,3 +47,20 @@ constraint could block patient care. Duplicates will be detected in application 
 **Why:** Only used for MSH-7, where low precision is useless. Converting "1955" to
 1955-01-01 would invent precision the sender never gave (dangerous for DOB/age logic).
 **Revisit:** Before parsing PID-7 (DOB), store precision alongside the value.
+## 009 – Dapper instead of Entity Framework
+**Decision:** Data access uses Dapper with hand-written, parameterized T-SQL.
+**Why:** Keeps SQL visible and practiced (the core skill for Clarity/Caboodle work); thin and fast.
+All values go through parameters, never string concatenation (SQL injection).
+**Trade-off:** More code than EF for simple inserts; no automatic migrations.
+
+## 010 – MRN chosen by identifier type (CX.5 = MR), never by position
+**Decision:** FindMrn searches PID-3 repetitions for type MR; returns null if none.
+**Why:** Senders order identifiers differently. A wrong MRN is a patient-safety risk; a blank one isn't.
+**Known limitation:** Doesn't check assigning authority (CX.4). With MRNs from two facilities,
+the first wins. Fix: make the expected assigning authority a per-interface setting.
+
+## 011 – Connection string in user secrets
+**Decision:** Stored with `dotnet user-secrets` under a shared ID (healthhub-dev), outside the repo.
+**Why:** Passwords never belong in Git.
+**Trade-off:** Plain text on disk; dev-only. Production would use a secrets manager and a
+least-privilege login instead of sa.
