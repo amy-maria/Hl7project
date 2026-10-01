@@ -5,7 +5,7 @@ namespace HealthHub.Core.Hl7;
 
 public static class Hl7DateTime
 {  ///list of all date patterns to accept, static readonly=created once and can't be replaced
-    private static readonly string[] Formats = ["yyyyMMddHHmmss", "yyyMMddHHmm", "yyyyMMddHH", "yyyyMMdd"];
+    private static readonly string[] Formats = ["yyyyMMddHHmmss", "yyyyMMddHHmm", "yyyyMMddHH", "yyyyMMdd"];
 
     ///parses HL7 datetime, returns null if value is empty or not valid date. Time zone
     /// offsets are dropped
