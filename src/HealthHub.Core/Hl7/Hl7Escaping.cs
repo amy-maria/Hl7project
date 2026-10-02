@@ -59,4 +59,29 @@ public static class Hl7Escaping
 
         return result.ToString();
     }
+    ///unescape to make the text safe inside the Hl7 field
+    
+    public static string Escape(string value, Delimiters d)
+    {
+        var result = new StringBuilder(value.Length);
+
+        foreach (char c in value)
+        {
+            if (c == d.Escape)
+                AppendSequence('E');
+            else if (c == d.Field)
+                AppendSequence('F');
+            else if (c == d.Component)
+                AppendSequence('S');
+            else if (c == d.Repetition)
+                AppendSequence('R');
+            else if (c == d.Subcomponent)
+                AppendSequence('T');
+            
+            else result.Append(c);
+        }
+        return result.ToString();
+
+        void AppendSequence(char code) => result.Append(d.Escape).Append(code).Append(d.Escape);
+    }
 }
