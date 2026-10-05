@@ -42,7 +42,7 @@ async Task<int> ImportAsync(string[] a)
         {
             var message = Hl7Message.Parse(raw);
             var record = MessageRecord.FromHl7(message, raw, interfaceId);
-            long id = await repository.InsertAsynch(record);
+            long id = await repository.InsertAsync(record);
 
             Console.WriteLine($"{fileName} -> MessageId {id} ({record.MessageType}^{record.TriggerEvent}, control ID {record.ControlId})");
         }

@@ -28,7 +28,7 @@ public sealed class MessageRepository
     }
     ///saves a message and returns a new messagId.
     
-    public async Task<long> InsertAsynch(MessageRecord message)
+    public async Task<long> InsertAsync(MessageRecord message)
     {
         const string sql = """
             INSERT INTO dbo.Messages (InterfaceId, SendingApplication, SendingFacility, ReceivingApplication, ReceivingFacility, MessageDateTime, MessageType, TriggerEvent, MessageStructure, ControlId, ProcessingId, VersionId, PatientMrn, RawMessage, Status, AckCode, ErrorText) 

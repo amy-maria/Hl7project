@@ -11,5 +11,5 @@ public sealed record ValidationResult(
     string? ErrorText = null) //readable explanation
 {
     public static readonly ValidationResult Accept = new("AA");
-    public bool isAccepted => AckCode == "AA";
+    public bool IsAccepted => AckCode == "AA";
 }

@@ -19,7 +19,7 @@ public static class AckBuilder
             string.Join(d.Field, mshFields),
             string.Join(d.Field, "MSA", result.AckCode, original.ControlId),
         };
-        if (!result.isAccepted)
+        if (!result.IsAccepted)
             segments.Add(BuildErr(result,d));
         return string.Join('\r', segments);
     }
