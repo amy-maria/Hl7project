@@ -1,6 +1,8 @@
 ﻿using HealthHub.Core.Hl7;
 using HealthHub.Data;
 using Microsoft.Extensions.Configuration;
+using System.Net.Sockets;
+using HealthHub.Core.Mllp;
 
 //settings from user secrets (local only) and env variables
 
@@ -16,6 +18,7 @@ switch (args[0])
 {
     case "import": return await ImportAsync(args);
     case "recent": return await RecentAsync();
+    case "send": return await SendAsync(args);
     default:       return PrintUsage();
 
 }
@@ -74,6 +77,44 @@ async Task<int> RecentAsync()
             Usage:
                 dotnet run -- import <folder> "<interface name>"
                 dotnet run -- recent
+                dotnet run -- send <file.hl7> [port]
         """);
         return 1;
     }
+//send <file> [port]: send one msg over MLLP ans wait for ACK
+    async Task<int> SendAsync(string[] a)
+{
+    if (a.Length <2)
+        return PrintUsage();
+    string path = a[1];
+    int port = a.Length >= 3 ? int.Parse(a[2]) : 6661;
+
+    //adjust files for Mac use \n. Read Hl7 senders will use \r.
+    string message = (await File.ReadAllTextAsync(path)).Replace("\r\n", "\r").Replace('\n', '\r').TrimEnd('\r');
+    using var client = new TcpClient();
+    await client.ConnectAsync("127.0.0.1", port);
+    NetworkStream stream = client.GetStream();
+
+    await stream.WriteAsync(MllpFraming.Wrap(message));
+    Console.WriteLine($"Sent {Path.GetFileName(path)} to port {port}. Waiting for ACK ...");
+
+    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+    try
+    {
+        string? ack = await new MllpFrameReader(stream).ReadMessageAsync(timeout.Token);
+        if (ack is null)
+        {
+            Console.WriteLine("The receiver closed the connection without sending ACK.");
+            return 2;
+        }
+        Console.WriteLine("ACK received: ");
+        Console.WriteLine(ack.Replace('\r', '\n')); //\n for each segment prints on its own line
+        return 0;
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine("No ACK within 10 sec (timeout).");
+        return 2;
+    }
+
+}
