@@ -84,3 +84,9 @@ least-privilege login instead of sa.
 **Why:** It is fine if the database is down but wrong for a poison message. The end user will continue to resend for both.
 **ToDo:\*\* Have the listener send an AR with a standard delimiters. Consider an error queue for review instead of discarding them.
 
+## 013- NHapi as a reference implementation
+**Decision:** NHapi (V251) used in tests to cross-check the hand-built parser.
+**Why:** Independent verification of encoding rules (MSH numbering, repetitions, components).
+NHapi is the standard .NET HL7 library and models every field and data type.
+**Trade-off:** Only in tests for now. Production parsing could move to NHapi when full
+data-type support or validation is needed.
