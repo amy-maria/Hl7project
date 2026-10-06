@@ -20,6 +20,7 @@ public sealed class Segment
     } 
 
     public string Name => _fields[0];
+    public int FieldCount =>_fields.Length -1;
     /// <summary>Returns the whole field(all repeitions) or "" if not present
     /// </summary>
     public string GetField(int fieldNumber) => 
