@@ -30,7 +30,26 @@ public partial class MainViewModel : ViewModelBase
     /// Row the user has clicked on, if any
     [ObservableProperty]
     public partial MessageRecord? SelectedMessage {get; set;}
-    
+    /// <summary>The selected message, broken down into segments, fields, and components.</summary>
+    public ObservableCollection<MessageTreeNode> TreeNodes { get; } = new();
+
+    // Generated hook: CommunityToolkit calls this every time SelectedMessage changes.
+    partial void OnSelectedMessageChanged(MessageRecord? value)
+    {
+        TreeNodes.Clear();
+        if (value is null)
+            return;
+
+        try
+        {
+            foreach (var node in MessageTreeBuilder.Build(value.RawMessage))
+                TreeNodes.Add(node);
+        }
+        catch (FormatException ex)
+        {
+            StatusText = $"Could not parse message {value.MessageId}: {ex.Message}";
+        }
+    }
     ///one-line status shown at the bottom of the window
     [ObservableProperty]
     public partial string StatusText { get; set; } = "Click Refresh to load messages.";

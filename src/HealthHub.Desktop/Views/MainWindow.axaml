@@ -49,15 +49,26 @@
 
             <Border Grid.Column="1" Margin="12,0,0,0" Padding="12"
                     BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
-                <StackPanel Spacing="6">
+                    <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,12">
                     <TextBlock Text="Selected Message" FontWeight="Bold" />
                     <TextBlock Text="{Binding SelectedMessage.ControlId, StringFormat='Control Id: {0}'}" />
-                    <TextBlock Text="{Binding SelectedMessage.SendingApplication, StringFormat='From: {0}'}" />
-                    <TextBlock Text="{Binding SelectedMessage.PatientMrn, StringFormat='MRN: {0}'}" />
                     <TextBlock Text="{Binding SelectedMessage.Status, StringFormat='Status: {0}'}" />
                     <TextBlock Text="{Binding SelectedMessage.ErrorText}" TextWrapping="Wrap" Foreground="IndianRed" />
-
                 </StackPanel>
+
+                <TreeView ItemsSource="{Binding TreeNodes}">
+                    <TreeView.ItemTemplate>
+                        <TreeDataTemplate x:DataType="vm:MessageTreeNode" ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{Binding Label}" FontWeight="Bold" MinWidth="60" />
+                                <TextBlock Text="{Binding Value}" />
+                            </StackPanel>
+                        </TreeDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+            </DockPanel>
+
             </Border>
 
          </Grid>
