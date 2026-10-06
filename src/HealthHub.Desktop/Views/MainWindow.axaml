@@ -1,13 +1,15 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HealthHub.Desktop.ViewModels"
+        xmlns:data="using:HealthHub.Data"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
         x:Class="HealthHub.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="HealthHub.Desktop">
+        Title="HealthHub Monitor"
+        Width="1000" Height="600">
 
     <Design.DataContext>
         <!-- This only sets the DataContext for the previewer in an IDE,
@@ -15,8 +17,49 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <DockPanel>
+        <!-- Top: Toolbar-->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="12" Margin="12">
+            <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+            <TextBlock Text="Recent messages (newest first)" VerticalAlignment="Center" />
+        </StackPanel>
 
+        <!-- BottomL status line-->
+         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusText}" Margin="12,6" />
+        <!-- Center: msg list on the left, details on the right-->
+         <Grid ColumnDefinitions="3*,2*" Margin="12,0">
+
+            <ListBox Grid.Column="0"
+                    ItemsSource="{Binding Messages}"
+                    SelectedItem="{Binding SelectedMessage}">
+                <ListBox.ItemTemplate>
+                   <DataTemplate x:DataType="data:MessageRecord">
+                        <Grid ColumnDefinitions="60,130,50,50,110,90,40">
+                            <TextBlock Grid.Column="0" Text="{Binding MessageId}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding ReceivedAtUtc, StringFormat='{}{0:MM-dd HH:mm:ss}'}"/>
+                            <TextBlock Grid.Column="2" Text="{Binding MessageType}" />
+                            <TextBlock Grid.Column="3" Text="{Binding TriggerEvent}" />
+                            <TextBlock Grid.Column="4" Text="{Binding ControlId}" />
+                            <TextBlock Grid.Column="5" Text="{Binding Status}" />
+                            <TextBlock Grid.Column="6" Text="{Binding AckCode}" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Border Grid.Column="1" Margin="12,0,0,0" Padding="12"
+                    BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Selected Message" FontWeight="Bold" />
+                    <TextBlock Text="{Binding SelectedMessage.ControlId, StringFormat='Control Id: {0}'}" />
+                    <TextBlock Text="{Binding SelectedMessage.SendingApplication, StringFormat='From: {0}'}" />
+                    <TextBlock Text="{Binding SelectedMessage.PatientMrn, StringFormat='MRN: {0}'}" />
+                    <TextBlock Text="{Binding SelectedMessage.Status, StringFormat='Status: {0}'}" />
+                    <TextBlock Text="{Binding SelectedMessage.ErrorText}" TextWrapping="Wrap" Foreground="IndianRed" />
+
+                </StackPanel>
+            </Border>
+
+         </Grid>
+    </DockPanel>
 </Window>
