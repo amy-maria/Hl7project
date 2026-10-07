@@ -41,4 +41,6 @@ public static class AckBuilder
         return t.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) + sign + t.Offset.Duration().ToString("hhmm", CultureInfo.InvariantCulture);
 
     }
+
+    
 }
