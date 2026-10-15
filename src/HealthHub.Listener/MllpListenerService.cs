@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using HealthHub.Core.Hl7;
 using HealthHub.Core.Mllp;
 using HealthHub.Data;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 
 namespace HealthHub.Listener;
@@ -100,11 +101,29 @@ public sealed class MllpListenerService : BackgroundService
             _logger.LogError("Unparseable message; no ACK sent: {Error}", ex.Message);
             return null;
         }
-        // promised in decision 002, tolerate \n but report it
-        if (raw.Contains('\n'))
-            _logger.LogWarning("Non-standard segment separators from {App} (control ID {ControlId})", message.GetSegment("MSH")!.GetComponent(3, 1), message.ControlId);
 
-        ValidationResult result = MessageValidator.Validate(message, _options.ProcessingId);
+        //-- Clinical Validation Step --
+        // Initalize the Engine
+
+        var validator = new MessageValidator();
+
+        validator.AddRule(new RequiredSegmentRule("MSH"));
+        validator.AddRule(new RequiredSegmentRule("EVN"));
+        validator.AddRule(new RequiredSegmentRule("PID"));
+        validator.AddRule(new RequiredSegmentRule("PV1"));
+        
+        //Uuse NotEmptyRule for fields that must have data
+        validator.AddRule(new NotEmptyRule("MSH", 10));
+        validator.AddRule(new NotEmptyRule("PID", 8));
+
+        //Use RegEx field rule for fields that must follow a pattern
+        validator.AddRule(new RegexFieldRule("PID", 3, @"^[a-zA-Z0-9]{5,10}"));
+        validator.AddRule(new RegexFieldRule("PID", 8, @"^[MFU]$")); //sex must be M,F,U
+
+        //Run the validation
+        ValidationResult result = validator.Validate(message);
+
+        //Endof validation
 
         var record = MessageRecord.FromHl7(message, raw, interfaceId);
         record.Status = result.IsAccepted ? "Processed" : "Error";

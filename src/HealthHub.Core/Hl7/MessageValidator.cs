@@ -1,44 +1,115 @@
-using System.Data;
+
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace HealthHub.Core.Hl7;
 
-public static class MessageValidator
+/// <summary>
+/// The "Contract" for a validation rule. 
+/// This allows us to add new rules without changing the Validator engine itself.
+/// (This follows the Open/Closed Principle).
+/// </summary>
+
+public interface IValidationRule
 {
-    private static readonly HashSet<string> SupportedTypes = ["ADT", "ORM", "OML", "ORU", "SIU"];
+    ValidationResult Validate(Hl7Message msg);
+}
 
-    public static ValidationResult Validate(Hl7Message msg, string expectedProcessingId = "P")
+/// <summary>
+    /// Allows us to "plug in" new rules at runtime.
+    /// </summary>
+    /// 
+public class MessageValidator
+{
+    private readonly List<IValidationRule> _rules = new();
+    /// <summary>
+    /// Allows us to "plug in" new rules at runtime.
+    /// </summary>
+    public void AddRule(IValidationRule rule) => _rules.Add(rule);
+    public ValidationResult Validate(Hl7Message msg)
     {
-        var msh = msg.GetSegment("MSH")!; //Parse() guarantees MSH exists
-        //If header problems: AR reject and don't process it
-        if (msg.ControlId == "")
-            return Reject(101, "Required Field Missing", "MSH", 10, "MSH-10 (Message Control ID) is required");
+        foreach (var rule in _rules)
+        {
+            var result = rule.Validate(msg);
+            //If any rule fails (IsAccepted is false), stop and return that error immediately
+            if (!result.IsAccepted) return result;
         
-        string processingId = msh.GetComponent(11, 1);
-        if (processingId != expectedProcessingId)
-            return Reject(202, "Unsupported processing id", "MSH", 11, $"Processing ID '{processingId}' not accepted; this receiver expect '{expectedProcessingId}'");
-        
-        string version = msh.GetComponent(12,1);
-        if (!version.StartsWith("2."))
-            return Reject(203, "Unsupported Version id", "MSH", 12, $"Version '{version}' is not supported");
+        }
+        return ValidationResult.Accept;
+    }
+}
+// ---CONCRETE RULE IMPLEMENTATIONS ---
 
-        string messageType = msh.GetComponent(9,1);
-        if (!SupportedTypes.Contains(messageType))
-            return Reject(200, "Unsupported message type", "MSH", 9, $"Message type '{messageType}' is not supported by this interface");
+/// <summary>
+/// Rule: Checks if a specific field in a segment matches the RegEx pattern.   Version is component aware so it doesn't get confused by delimiters. (like PID or MSH) exists in the message.
+/// </summary>
+public class RegexFieldRule : IValidationRule
+{
+    private readonly string _segmentName;
+    private readonly int _fieldNumber;
+    private readonly string _pattern;
 
-            //Msg content problems; AE- msg read but data has errors
-        var pid = msg.GetSegment("PID");
-        if (pid is null)
-            return Error(100, "Segment sequence error", "PID", null, "PID segment is required");
+    public RegexFieldRule(string segment, int field, string pattern)
+    {
+        _segmentName = segment;
+        _fieldNumber = field;
+        _pattern = pattern;
+    }
+    
+    public ValidationResult Validate(Hl7Message msg)
+    {
+        var segment = msg.GetSegment(_segmentName);
+        if (segment == null) return ValidationResult.Accept;
 
-        if (pid.GetField(3) == "")
-            return Error(101, "Required field missing", "PID", 3, "PID-3 (Patient Identifier List) is required");
+        var value = segment.GetComponent(_fieldNumber, 1);
 
-        return ValidationResult.Accept;   
+        if (!Regex.IsMatch(value, _pattern))
+        {
+            return new ValidationResult("AE", 101, "Format Error", _segmentName, _fieldNumber, $"Field {_fieldNumber} must match pattern: {_pattern}");
+
+        }
+        return ValidationResult.Accept;
+    }
+}
+
+public class RequiredSegmentRule : IValidationRule
+{
+    private readonly string _segmentName;
+    public RequiredSegmentRule(string segmentName) => _segmentName = segmentName;
+    public ValidationResult Validate(Hl7Message msg)
+    {
+        if (msg.GetSegment(_segmentName) == null)
+            return new ValidationResult("AE", 100, "Missing Segment", _segmentName, null, $"{_segmentName} segment is required.");
+        return ValidationResult.Accept;
+    }   
+}
+/// <summary>
+/// RULE: Checks if a specific field is not empty or whitespace.
+/// </summary
+public class NotEmptyRule : IValidationRule
+{
+    private readonly string _segmentName;
+    private readonly int _fieldNumber;
+    public NotEmptyRule(string segmentName, int fieldNumber)
+    {
+        _segmentName = segmentName;
+        _fieldNumber = fieldNumber;
 
     }
-    private static ValidationResult Reject(int code, string codeText, string segment, int? field, string text) =>
-        new("AR", code, codeText, segment, field, text);
+    public ValidationResult Validate(Hl7Message msg)
+    {
+        var segment = msg.GetSegment(_segmentName);
+        //If the segment is missing, return Accept here. RequiredSegmentRule is responsible for reporting missing segments.
+        if (segment == null) return ValidationResult.Accept;
 
-    private static ValidationResult Error(int code, string codeText, string segment, int? field, string text) =>
-        new("AE", code, codeText, segment, field, text);
+        var value = segment.GetField(_fieldNumber);
+
+        if (string.IsNullOrWhiteSpace (value))
+        {
+            return new ValidationResult("AE", 101, "Required Field Missing", _segmentName, _fieldNumber, $"Field {_fieldNumber} cannot be empty.");
+        
+        }
+        return ValidationResult.Accept;
+
+    }
 }
