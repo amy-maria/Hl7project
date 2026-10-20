@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HealthHub.Data\HealthHub.Data.csproj" />
+    <ProjectReference Include="..\HealthHub.Transforms\HealthHub.Transforms.csproj" />
   </ItemGroup>
 
   <ItemGroup>

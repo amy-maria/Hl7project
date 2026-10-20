@@ -5,6 +5,7 @@
     <Project Path="src/HealthHub.Desktop/HealthHub.Desktop.csproj" />
     <Project Path="src/HealthHub.Listener/HealthHub.Listener.csproj" />
     <Project Path="src/HealthHub.Tools/HealthHub.Tools.csproj" />
+     <Project Path="src/HealthHub.Transforms/HealthHub.Transforms.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/HealthHub.Core.Tests/HealthHub.Core.Tests.csproj" />

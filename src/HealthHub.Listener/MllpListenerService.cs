@@ -1,3 +1,4 @@
+using System.Diagnostics.Eventing.Reader;
 using System.Net;
 using System.Net.Sockets;
 using HealthHub.Core.Hl7;
@@ -5,6 +6,7 @@ using HealthHub.Core.Mllp;
 using HealthHub.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 namespace HealthHub.Listener;
 
@@ -101,42 +103,76 @@ public sealed class MllpListenerService : BackgroundService
             _logger.LogError("Unparseable message; no ACK sent: {Error}", ex.Message);
             return null;
         }
+        //new logic - detect context
+        //if trigger event is ADT^99, admit is treated as emergency. 
+        bool IsEmergency = message.MessageType.StartsWith("ADT^A99");
+        var context = new ValidationContext(IsEmergency);
 
-        //-- Clinical Validation Step --
-        // Initalize the Engine
+        if (IsEmergency)
+            _logger.LogWarning("EMERGENCY MODE ACTIVE for Control ID {ControlId}", message.ControlId);
 
-        var validator = new MessageValidator();
+        //pass the contect on to the next validation engine
+       
 
-        validator.AddRule(new RequiredSegmentRule("MSH"));
-        validator.AddRule(new RequiredSegmentRule("EVN"));
-        validator.AddRule(new RequiredSegmentRule("PID"));
-        validator.AddRule(new RequiredSegmentRule("PV1"));
-        
-        //Uuse NotEmptyRule for fields that must have data
-        validator.AddRule(new NotEmptyRule("MSH", 10));
-        validator.AddRule(new NotEmptyRule("PID", 8));
+        if (raw.Contains('\n'))
+            _logger.LogWarning("Non-standard segment separators from {App} (control ID {controlId})", message.GetSegment("MSH")!.GetComponent(3,1), message.ControlId); 
 
-        //Use RegEx field rule for fields that must follow a pattern
-        validator.AddRule(new RegexFieldRule("PID", 3, @"^[a-zA-Z0-9]{5,10}"));
-        validator.AddRule(new RegexFieldRule("PID", 8, @"^[MFU]$")); //sex must be M,F,U
+        //configure Validator with Clinical Spec
+        var validator = GetStandardValidator();
 
-        //Run the validation
-        ValidationResult result = validator.Validate(message);
-
-        //Endof validation
+        //Run validation
+        ValidationResult result = validator.Validate(message, context);
 
         var record = MessageRecord.FromHl7(message, raw, interfaceId);
         record.Status = result.IsAccepted ? "Processed" : "Error";
         record.AckCode = result.AckCode;
         record.ErrorText = result.ErrorText;
 
-        //store before acknowledging; never ACK a message that was not savely saved
         long messageId = await _repository.InsertAsync(record);
-        _logger.LogInformation("Message {Id}: {Type} control ID {ControlId} -> {Ack} {Error}", messageId, message.MessageType, message.ControlId, result.AckCode, result.ErrorText);
+        _logger.LogInformation("Message {Id}: {Type} controlID {ControlId} -> {Ack} {Error}", messageId, message.MessageType, message.ControlId, result.AckCode, result.ErrorText);
 
         return AckBuilder.Build(message, result, NewAckControlId(), DateTimeOffset.Now);
     }
-    //"ACK" - 17 digits = 20 char, MSH-10 limit in v 2.5.1
+       /// <summary>
+    /// This method implements your Clinical Specification.
+    /// It translates your requirements into the Rule Engine.
+    /// </summary>
+    /// 
+    private MessageValidator GetStandardValidator()
+    {
+
+        //-- Clinical Validation Step --
+        // Initalize the Engine
+
+        var validator = new MessageValidator();
+        //segment extistence
+
+        validator.AddRule(new RequiredSegmentRule("MSH"));
+        validator.AddRule(new RequiredSegmentRule("EVN"));
+        validator.AddRule(new RequiredSegmentRule("PID"));
+        validator.AddRule(new RequiredSegmentRule("PV1"));
+        
+        //MSH rules
+        //Uuse NotEmptyRule for fields that must have data
+        validator.AddRule(new NotEmptyRule("MSH", 3)); //sending App
+        validator.AddRule(new NotEmptyRule("MSH", 9)); // message type
+        validator.AddRule(new NotEmptyRule("MSH", 10)); // ControlId
+
+        //PID Rules. Use RegEx field rule for fields that must follow a pattern
+        validator.AddRule(new RegexFieldRule("PID", 3, @"^[a-zA-Z0-9]{5,10}$")); //patient ID
+        validator.AddRule(new NotEmptyRule("PID", 5)); //checks for name
+        validator.AddRule(new RegexFieldRule("PID", 8, @"^[MFU]$")); //sex must be M,F,U
+        validator.AddRule(new AllowedValuesRule("PID", 8, new[] { "M", "F", "U"})); //sex
+        validator.AddRule(new NotEmptyRule("PID", 11)); // address
+        validator.AddRule(new NotEmptyRule("PID", 13)); //PHONE
+
+        //PV1 rules
+        validator.AddRule(new AllowedValuesRule("PV1", 2, new[] {"I", "O", "E", "P"})); //patient type
+        validator.AddRule(new NotEmptyRule("PV1", 3)); //location
+
+        return validator;
+    }
+
     private static string NewAckControlId() => "ACK" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
     
-    }
+}
