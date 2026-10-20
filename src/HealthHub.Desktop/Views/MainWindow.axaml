@@ -1,76 +1,84 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:HealthHub.Desktop.ViewModels"
-        xmlns:data="using:HealthHub.Data"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="HealthHub.Desktop.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="HealthHub Monitor"
+        Title="HealthHub - Clinical Interoperability Monitor"
         Width="1000" Height="600">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainViewModel />
+        <vm:MainViewModel/>
     </Design.DataContext>
 
     <DockPanel>
-        <!-- Top: Toolbar-->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="12" Margin="12">
-            <Button Content="Refresh" Command="{Binding RefreshCommand}" />
-            <TextBlock Text="Recent messages (newest first)" VerticalAlignment="Center" />
+        <!-- 1. STATUS BAR (Bottom) -->
+        <Border DockPanel.Dock="Bottom" Background="#F0F0F0" BorderBrush="DarkGray" BorderThickness="0,1,0,0" Padding="5">
+            <TextBlock Text="{Binding StatusText}" Foreground="Black" VerticalAlignment="Center"/>
+        </Border>
+
+        <!-- 2. TOOLBAR (Top) -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Background="Blue" Margin="5">
+            <Button Command="{Binding RefreshCommand}" Content="Refresh Messages" Margin="5,0"/>
         </StackPanel>
 
-        <!-- BottomL status line-->
-         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusText}" Margin="12,6" />
-        <!-- Center: msg list on the left, details on the right-->
-         <Grid ColumnDefinitions="3*,2*" Margin="12,0">
-
-            <ListBox Grid.Column="0"
-                    ItemsSource="{Binding Messages}"
-                    SelectedItem="{Binding SelectedMessage}">
-                <ListBox.ItemTemplate>
-                   <DataTemplate x:DataType="data:MessageRecord">
-                        <Grid ColumnDefinitions="60,130,50,50,110,90,40">
-                            <TextBlock Grid.Column="0" Text="{Binding MessageId}"/>
-                            <TextBlock Grid.Column="1" Text="{Binding ReceivedAtUtc, StringFormat='{}{0:MM-dd HH:mm:ss}'}"/>
-                            <TextBlock Grid.Column="2" Text="{Binding MessageType}" />
-                            <TextBlock Grid.Column="3" Text="{Binding TriggerEvent}" />
-                            <TextBlock Grid.Column="4" Text="{Binding ControlId}" />
-                            <TextBlock Grid.Column="5" Text="{Binding Status}" />
-                            <TextBlock Grid.Column="6" Text="{Binding AckCode}" />
-                        </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-
-            <Border Grid.Column="1" Margin="12,0,0,0" Padding="12"
-                    BorderBrush="Gray" BorderThickness="1" CornerRadius="4">
-                    <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,12">
-                    <TextBlock Text="Selected Message" FontWeight="Bold" />
-                    <TextBlock Text="{Binding SelectedMessage.ControlId, StringFormat='Control Id: {0}'}" />
-                    <TextBlock Text="{Binding SelectedMessage.Status, StringFormat='Status: {0}'}" />
-                    <TextBlock Text="{Binding SelectedMessage.ErrorText}" TextWrapping="Wrap" Foreground="IndianRed" />
-                </StackPanel>
-
-                <TreeView ItemsSource="{Binding TreeNodes}">
-                    <TreeView.ItemTemplate>
-                        <TreeDataTemplate x:DataType="vm:MessageTreeNode" ItemsSource="{Binding Children}">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="{Binding Label}" FontWeight="Bold" MinWidth="60" />
-                                <TextBlock Text="{Binding Value}" />
+        <!-- 3. MAIN CONTENT (Split View) -->
+        <Grid ColumnDefinitions="300, *">
+            
+            <!-- LEFT PANE: The List of Messages -->
+            <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="0,0,1,0">
+                <ListBox ItemsSource="{Binding Messages}" 
+                         SelectedItem="{Binding SelectedMessage}"
+                         Margin="5">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding MessageId, StringFormat='ID: {0}'}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding MessageType, StringFormat='Type: {0}'}" FontSize="12"/>
+                                <TextBlock Text="{Binding ControlId, StringFormat='CtrlID: {0}'}" FontSize="10" Foreground="Gray"/>
                             </StackPanel>
-                        </TreeDataTemplate>
-                    </TreeView.ItemTemplate>
-                </TreeView>
-            </DockPanel>
-
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </Border>
 
-         </Grid>
+            <!-- RIGHT PANE: The Details View -->
+            <Grid Grid.Column="1" RowDefinitions="*, *" Margin="10">
+                
+                <!-- TOP RIGHT: The HL7 Tree View -->
+                <Border Grid.Row="0" BorderBrush="LightGray" BorderThickness="1" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="HL7 Segment Hierarchy" FontWeight="Bold" Margin="5"/>
+                        <TreeView ItemsSource="{Binding TreeNodes}" Height="200">
+                            <TreeView.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Label}" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding Value, StringFormat=': {0}'}" Margin="5,0,0,0"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </StackPanel>
+                </Border>
+
+                <!-- BOTTOM RIGHT: The FHIR JSON View -->
+                <Border Grid.Row="1" BorderBrush="LightGray" BorderThickness="1">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="FHIR Resource (JSON)" FontWeight="Bold" Margin="5"/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <TextBlock Text="{Binding FhirJson}" 
+                                       FontFamily="Courier New" 
+                                       FontSize="12" 
+                                       Margin="5" 
+                                       TextWrapping="Wrap"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+                
+            </Grid>
+        </Grid>
     </DockPanel>
 </Window>

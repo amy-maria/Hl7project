@@ -3,7 +3,9 @@ using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using HealthHub.Core.Hl7;
 using HealthHub.Data;
+using HealthHub.Transforms;
 using Microsoft.Extensions.Configuration;
 
 namespace HealthHub.Desktop.ViewModels;
@@ -11,6 +13,7 @@ namespace HealthHub.Desktop.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     private readonly MessageRepository? _repository;
+    private readonly PatientFhirTransformer _transformer;
 
     public MainViewModel()
     {
@@ -23,43 +26,61 @@ public partial class MainViewModel : ViewModelBase
             StatusText = "Connection string 'HealthHub' is not set (user secrets).";
         else
             _repository = new MessageRepository(connectionString);
+        //initialize the transformer
+        _transformer = new PatientFhirTransformer();
     }
-    /// Rows shown in the msg list
-    public ObservableCollection<MessageRecord> Messages {get; } = new();
+    // Rows shown in the msg list
+    public ObservableCollection<MessageRecord> Messages { get; } = new();
 
-    /// Row the user has clicked on, if any
+  
     [ObservableProperty]
-    public partial MessageRecord? SelectedMessage {get; set;}
-    /// <summary>The selected message, broken down into segments, fields, and components.</summary>
+    public partial MessageRecord? SelectedMessage { get; set;}
+    /// <summary>The selected message, broken down into segments, fields, and components.///</summary>
     public ObservableCollection<MessageTreeNode> TreeNodes { get; } = new();
 
-    // Generated hook: CommunityToolkit calls this every time SelectedMessage changes.
+    /// <summary>
+    /// This holds the converted FHIR JSON string.
+    /// </summary>
+    [ObservableProperty]
+    public partial string FhirJson { get; set; } = "Select a message to see the FHIR resource ...";
+
+    ///<summary>
+    /// The status bar text.
+    /// </summary>
+    [ObservableProperty]
+    public partial string StatusText { get; set; } = "Click Refresh to load messages.";
+
+    ///<summary>
+    /// This method runs automatically every time SelectedMessage changes.
+    /// </summary>
     partial void OnSelectedMessageChanged(MessageRecord? value)
     {
         TreeNodes.Clear();
+        FhirJson = "Select a message to see the FHIR resource ....";//reset JSON view
+
         if (value is null)
             return;
 
         try
         {
+            //build the tree view(HL7 segments)
             foreach (var node in MessageTreeBuilder.Build(value.RawMessage))
                 TreeNodes.Add(node);
+            // build the FHIR JSON, parse the RawMessage string into Hl7Message obj before passing to transformer
+            var parsedMessage = Hl7Message.Parse(value.RawMessage);
+            FhirJson = _transformer.Transform(parsedMessage);
         }
-        catch (FormatException ex)
+        catch (Exception ex)
         {
-            StatusText = $"Could not parse message {value.MessageId}: {ex.Message}";
+            StatusText = $"Could not parse or transform message: {ex.Message}";
         }
     }
-    ///one-line status shown at the bottom of the window
-    [ObservableProperty]
-    public partial string StatusText { get; set; } = "Click Refresh to load messages.";
 
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        if (_repository is null)
-            return;
-        
+        if (_repository is null) return;
+
         try
         {
             StatusText = "Loading ...";
@@ -76,5 +97,6 @@ public partial class MainViewModel : ViewModelBase
             StatusText = $"Could not load messages: {ex.Message}";
         }
     }
-
 }
+
+   
