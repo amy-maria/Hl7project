@@ -1,92 +1,71 @@
-# Decision Log
+# Architecture Decision Records (ADR) - HealthHub Project
 
-## 001 – Built own HL7 parser before adopting NHapi
+This document captures the significant architectural decisions made during the development of the HealthHub Interoperability Engine. These records provide context for *why* certain technical paths were chosen, including the clinical trade-offs.
 
-**Date:** 2026-09-29
-**Decision:** Wrote a minimal parser by hand (delimiters, MSH numbering, components).
-**Why:** To learn the v2 encoding rules well enough to troubleshoot real interfaces and prepare for the HL7 Control Specialist exam.
-**Trade-off:** Not production-grade (no data-type validation). Plan to switch to NHapi in Phase 3.
+---
 
-## 002 – Accept \n and \r\n as segment separators
+## ADR 001: Custom HL7 Parser Implementation
+**Status:** Accepted
+**Context:** We need a lightweight way to parse HL7 v2 messages for internal routing and validation.
+**Decision:** Implement a custom, minimal parser to handle MSH numbering, delimiters, and component/repetition logic.
+**Consequences:** 
+- **Pros:** Extremely lightweight; no external dependencies; provides deep understanding of v2 encoding for troubleshooting.
+- **Cons:** Does not currently support full HL7 data-type validation (e.    g., checking if a field is a valid Date or XPN).
+**Note:** Plan to use NHapi as a reference implementation in the testing suite.
 
-**Date:** 2026-09-29
-**Decision:** The parser normalizes \r\n and \n to \r before splitting segments.
-**Why:** Test messages pasted from emails, text files, and Windows tools often have the
-wrong line endings. Rejecting them would make the tool frustrating to use for troubleshooting.
-**Trade-off:** HL7 v2 requires \r (0x0D). Accepting other separators hides a sender's
-non-conformance. In production, the listener should:
+## ADR 002: Delimiter Normalization
+**Status:** Accepted
+**Context:** Real-world HL7 sources often provide inconsistent line endings (e.g., `\n` or `\r\n` instead of the standard `\r`).
+**Decision:** The parser will normalize all incoming line endings to `\r` before splitting segments.
+**Consequences:** 
+- **Pros:** Increases the "Ingestion Reliability" of the engine, preventing message rejection due to trivial formatting issues.
+- **Cons:** Hides non-conformance from the sender. 
+**Mit1:** The MLLP Listener must log a warning including the `MSH-3` (Sending Application) and `MSH-10` (Control ID) when non-standard delimiters are detected.
 
-1. still parse the message (don't block patient care over line endings),
-2. log a warning with the sending application (MSH-3) and control ID (MSH-10),
-3. report it to the sending system's team so they fix it at the source.
+## ADR 003: Relational Data Storage (SQL Server)
+**Status:** Accepted
+**Context:** We need a reliable, searchable store for message history and interface configurations.
+**Decision:** Use SQL Server (running in Docker) to store both the raw message text and extracted metadata.
+**Con Consequences:** 
+- **Pros:** Allows for fast, indexed searching of specific clinical identifiers (like MRN) while preserving the "Legal Record" (the raw message).
+- **Cons:** Requires managing a database lifecycle and handling schema migrations.
 
-**ToDo:** Phase 3, when the MLLP listener is built, add the warning log.
+## ADR 004: Data Redundancy for Search Performance
+**Status:** Accepted
+**Context:** Searching for a specific Patient ID within a massive blob of raw text is slow and resource-intensive.
+**Decision:** Use a "Dual-Storage" approach. Store the full raw message, but also extract key fields (MSH-10, PID-3, etc.) into dedicated, indexed columns.
+**Consequences:** 
+- **Pros:** Enables near-instantaneous search for clinicians.
+- **Cons:** Slight increase in storage requirements and write-time complexity.
 
-## 003 SQL Server in Docker via Componse
+## ADR 005: Timezone Management (UTC)
+**Status:** Accepted
+Context: Healthcare data must be chronologically accurate across different timezones and Daylight Savings transitions.
+**Decision:** All system-generated timestamps (e.g., `ReceivedAtUtc`) must be stored in UTC. 
+**Consequences:** 
+- **Pros:** Ensures a single, unambiguous timeline for all messages.
+- **Cons:** The UI layer must handle the conversion from UTC to the user's local time for display.
 
-## 004 – Store raw message plus extracted MSH/PID fields
+## ADR 006: Identifier Logic (MRN Selection)
+**Status:** Accepted
+Context: A patient may have multiple identifiers (SSN, Medical Record Number, Driver's License).
+**Decision:** The system will identify the primary MRN by searching for the identifier type `MR` in the `PID-3` field.
+**Consequences:** 
+- **Pros:** Highly reliable; avoids the risk of grabbing the wrong ID if the order of identifiers changes.
+- **Cons:** Requires the sender to follow the standard identifier type coding.
 
-**Decision:** Messages table keeps the full raw text AND copies key fields into indexed columns.
-**Why:** Raw = legal evidence and replay; columns = fast search. LIKE on raw text can't use indexes.
-**Trade-off:** Duplicated data and more storage (cheap compared with troubleshooting time).
+## ADR 007: Context-Aware Validation (Emergency Mode)
+**Status: Accepted**
+**Context:** In clinical environments, "Strict Data" can conflict with "Patient Safety." For example, a trauma patient may arrive without a name or ID.
+**Decision:** Implement a `ValidationContext` that allows the engine to switch between **Standard Mode** and **Emergency Mode** based on the incoming `MSH-9` (Trigger Event) code.
+**Consequences:** 
+- **Pros:** Allows for "Permissive Validation" during critical events (e.g., `ADT^A99`), ensuring that life-saving data is ingested even if it is incomplete.
+- **Cons:** Requires careful monitoring to ensure "Emergency Mode" is not used to bypass standards during routine operations.
 
-## 005 – Receive timestamps stored in UTC
-
-**Decision:** ReceivedAtUtc uses SYSUTCDATETIME(); MSH-7 is kept as sent.
-**Why:** Local time repeats an hour at the fall DST change, making result order ambiguous.
-**Trade-off:** Must convert to local time for display.
-
-## 006 – MSH-10 control ID indexed but not unique
-
-**Decision:** Non-unique index on (InterfaceId, ControlId).
-**Why:** Senders legitimately resend after timeouts/NAKs, and some reset counters. A unique
-constraint could block patient care. Duplicates will be detected in application logic.
-**Trade-off:** Duplicates can get in; needs monitoring (see duplicate-detection query).
-
-## 007 – Docker Desktop for local infrastructure
-
-**Decision:** SQL Server (and later IRIS for Health) run in containers via Docker Desktop.
-**Why:** Reproducible dev environment; nothing installed directly on the Mac.
-**Trade-off:** On Apple Silicon, SQL Server runs as an x86 image through Rosetta emulation
-(slower, fine for dev). Containers use 4 GB+ of RAM while running; stop them with
-`docker compose stop` when not working.
-
-## 008 – Hl7DateTime ignores year-only and year-month values
-
-**Decision:** Parse accepts YYYYMMDD and longer; YYYY and YYYYMM return null.
-**Why:** Only used for MSH-7, where low precision is useless. Converting "1955" to
-1955-01-01 would invent precision the sender never gave (dangerous for DOB/age logic).
-**Revisit:** Before parsing PID-7 (DOB), store precision alongside the value.
-
-## 009 – Dapper instead of Entity Framework
-
-**Decision:** Data access uses Dapper with hand-written, parameterized T-SQL.
-**Why:** Keeps SQL visible and practiced (the core skill for Clarity/Caboodle work); thin and fast.
-All values go through parameters, never string concatenation (SQL injection).
-**Trade-off:** More code than EF for simple inserts; no automatic migrations.
-
-## 010 – MRN chosen by identifier type (CX.5 = MR), never by position
-
-**Decision:** FindMrn searches PID-3 repetitions for type MR; returns null if none.
-**Why:** Senders order identifiers differently. A wrong MRN is a patient-safety risk; a blank one isn't.
-**Known limitation:** Doesn't check assigning authority (CX.4). With MRNs from two facilities,
-the first wins. Fix: make the expected assigning authority a per-interface setting.
-
-## 011 – Connection string in user secrets
-
-**Decision:** Stored with `dotnet user-secrets` under a shared ID (healthhub-dev), outside the repo.
-**Why:** Passwords never belong in Git.
-**Trade-off:** Plain text on disk; dev-only. Production would use a secrets manager and a
-least-privilege login instead of sa.
-
-##012- Error queue for malformed messages
-**Decision: Current listener treats 'Database down' and 'Poison Message' the same.
-**Why:** It is fine if the database is down but wrong for a poison message. The end user will continue to resend for both.
-**ToDo:\*\* Have the listener send an AR with a standard delimiters. Consider an error queue for review instead of discarding them.
-
-## 013- NHapi as a reference implementation
-**Decision:** NHapi (V251) used in tests to cross-check the hand-built parser.
-**Why:** Independent verification of encoding rules (MSH numbering, repetitions, components).
-NHapi is the standard .NET HL7 library and models every field and data type.
-**Trade-off:** Only in tests for now. Production parsing could move to NHapi when full
-data-type support or validation is needed.
+## ADR 008: FHIR Transformation Layer
+**Status: Accepted**
+**Context:** Modern healthcare is moving toward the FHIR (Fast Healthcare Interoperability Resources) standard. 
+**Decision:** Build a dedicated transformation layer that converts legacy HL7 v2 messages into standardized FHIR JSON resources.
+**Consequences:** 
+- **Pros:** Makes our system "Future-Proof" and allows it to integrate with modern cloud-based EMRs and mobile applications.
+- **Cons:** Requires maintaining a mapping logic between the two different data models.
