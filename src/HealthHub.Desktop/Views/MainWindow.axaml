@@ -53,12 +53,12 @@
                         <TextBlock Text="HL7 Segment Hierarchy" FontWeight="Bold" Margin="5"/>
                         <TreeView ItemsSource="{Binding TreeNodes}" Height="200">
                             <TreeView.ItemTemplate>
-                                <DataTemplate>
+                               <TreeDataTemplate ItemsSource="{Binding Children}">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding Label}" FontWeight="Bold"/>
                                         <TextBlock Text="{Binding Value, StringFormat=': {0}'}" Margin="5,0,0,0"/>
                                     </StackPanel>
-                                </DataTemplate>
+                               </TreeDataTemplate>
                             </TreeView.ItemTemplate>
                         </TreeView>
                     </StackPanel>
