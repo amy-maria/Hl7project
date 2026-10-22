@@ -1,17 +1,23 @@
-# Project Overview
-HealthHub is an HL7-to-FHIR Interoperability Engine designed to bridge the gap between legacy medical devices and modern healthcare cloud environments. It features context-aware validation to support clinical emergency workflows.
+🏥 HealthHub: HL7-to-FHIR Interoperability Engine
 
-# From HL7 to FHIR
-Problem: "Legacy HL7 data is difficult to parse and doesn't work with modern web applications."
-Solution: "HealthHub ingests raw MLLP streams, validates them against clinical rules, and transforms them into standardized FHIR JSON resources."
+HealthHub is a high-performance .NET-based engine designed to automate the ingestion, validation, and transformation of clinical data. It acts as a bridge between legacy HL7 v2 messaging (used by many hospital systems) and modern FHIR-based web services.
+
+🚀 Core Capabilities
+Real-time Ingestion: A high-performance MLLP listener that handles concurrent TCP connections.
+Clinical Validation: A modular rule engine that performs strict validation for standard data, while allowing for "Emergency Mode" to ensure patient care is never delayed by missing information.
+Data Transformation: An automated pipeline that converts raw HL7 v2 segments into standardized, searchable FHIR JSON resources.
+Reliable Persistence: A data layer that stores both the raw "legal" record and extracted metadata for rapid clinical searching. 
 
 ## Project Demo
 <img src="./docs/image/Screenshot 2026-10-22 at 11.38.03 AM.png" width="600" alt="HealthHub Desktop UI">
 
 
 # Technical Highlights
--Architecture: "Implemented Clean Architecture and Separation of Concerns to decouple core logic from data and UI."
--Design Patterns: "Utilized the Strategy Pattern for a modular validation engine and the Repository Pattern for data persistence."
--Asynchronous Programming: "Leveraged Async/Await and Task-based programming to build a non-blocking, high-performance MLLP listener."
--Modern C# Features: "Utilized Records, Primary Constructors, and LINQ to write concise, maintainable, and modern C# code."
--Dependency Injection: "Implemented Dependency Injection to allow for easy testing and modularity of the validation and data layers."
+## 🚀 Technical Highlights
+
+* **Architecture:** Implemented **Clean Architecture** and **Separation of Concerns** to decouple core domain logic from data access and user interface layers.
+* **Design Patterns:** Utilized the **Strategy Pattern** for a modular, pluggable validation engine and the **Repository Pattern** for standardized data persistence.
+* **Asynchronous Programming:** Leveraged **Async/Await** and **Task-based programming** to build a non-blocking, high-performance MLLP listener capable of handling concurrent connections.
+* **Modern C# Features:** Utilized modern language features including **Records**, **Primary Constructors**, and **LINQ** to write concise, highly readable, and maintainable code.
+* **Dependency Injection:** Implemented **Dependency Injection (DI)** to ensure the system is highly testable and to allow for easy modularity across the validation and data layers.
+
