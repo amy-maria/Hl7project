@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using Dapper;
 using Microsoft.Data.SqlClient;
 ///bring in new packages, SqlConnect from SqlClient and async from Dapper
